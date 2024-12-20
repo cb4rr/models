@@ -1,16 +1,41 @@
-const state = {
-    scene: new THREE.Scene(),
-    camera: null,
-    renderer: null,
-    world: null,
-    mousePos: { x: 0, y: 0 },
-    logos: [],
-    COLORS: [0xffffff, 0x2f4bce],
-    usedPositions: [],
-    mouseBall: null
+window.init = async function() {
+    window.state = {
+        scene: new THREE.Scene(),
+        camera: null,
+        renderer: null,
+        world: null,
+        mousePos: { x: 0, y: 0 },
+        logos: [],
+        COLORS: [0xffffff, 0x2f4bce],
+        usedPositions: [],
+        mouseBall: null
+    };
+
+    state.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+    state.camera.position.z = 10;
+
+    state.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: false,
+        powerPreference: "high-performance"
+    });
+    state.renderer.setSize(window.innerWidth, window.innerHeight);
+    state.renderer.setPixelRatio(1);
+    document.body.appendChild(state.renderer.domElement);
+
+    await RAPIER.init();
+    state.world = new RAPIER.World({ x: 0, y: 0, z: 0 });
+    
+    setupBoundaries();
+    setupMouseBall();
+    await setupLogos();
+    setupEventListeners();
+    
+    animate();
+    console.log('Aplicación iniciada correctamente');
 };
 
-function generateRandomPosition() {
+window.generateRandomPosition = function() {
     const rangeX = 4;
     const rangeY = 3;
     const rangeZ = 0.5;
@@ -49,23 +74,21 @@ function generateRandomPosition() {
     ];
     state.usedPositions.push(fallbackPos);
     return fallbackPos;
-}
+};
 
-function getDistance(pos1, pos2) {
+window.getDistance = function(pos1, pos2) {
     const dx = pos1[0] - pos2[0];
     const dy = pos1[1] - pos2[1];
     const dz = pos1[2] - pos2[2];
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
-}
+};
 
-function setupBoundaries() {
-    // Pared trasera
+window.setupBoundaries = function() {
     const backWall = RAPIER.ColliderDesc.cuboid(20, 20, 0.5);
     state.world.createCollider(backWall, state.world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 1)
     ));
 
-    // Paredes laterales
     const rightWall = RAPIER.ColliderDesc.cuboid(0.5, 20, 20);
     state.world.createCollider(rightWall, state.world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(12, 0, 0)
@@ -76,7 +99,6 @@ function setupBoundaries() {
         RAPIER.RigidBodyDesc.fixed().setTranslation(-12, 0, 0)
     ));
 
-    // Paredes superior e inferior
     const topWall = RAPIER.ColliderDesc.cuboid(20, 0.5, 20);
     state.world.createCollider(topWall, state.world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(0, 12, 0)
@@ -86,18 +108,18 @@ function setupBoundaries() {
     state.world.createCollider(bottomWall, state.world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(0, -12, 0)
     ));
-}
+};
 
-function setupMouseBall() {
+window.setupMouseBall = function() {
     const ballDesc = RAPIER.RigidBodyDesc.kinematicPositionBased();
     const ballBody = state.world.createRigidBody(ballDesc);
     const ballCollider = RAPIER.ColliderDesc.ball(1.5);
     state.world.createCollider(ballCollider, ballBody);
     state.mouseBall = ballBody;
-}
+};
 
-async function setupLogos() {
-    const loader = new GLTFLoader();
+window.setupLogos = async function() {
+    const loader = new THREE.GLTFLoader();
     const textureLoader = new THREE.TextureLoader();
     const matcapTexture = await textureLoader.loadAsync('https://cdn.jsdelivr.net/gh/cb4rr/models@main/matcap.png');
 
@@ -136,9 +158,9 @@ async function setupLogos() {
             resolve();
         });
     });
-}
+};
 
-function setupEventListeners() {
+window.setupEventListeners = function() {
     window.addEventListener('mousemove', (event) => {
         state.mousePos.x = (event.clientX / window.innerWidth) * 2 - 1;
         state.mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -149,10 +171,9 @@ function setupEventListeners() {
         state.camera.updateProjectionMatrix();
         state.renderer.setSize(window.innerWidth, window.innerHeight);
     });
-}
+};
 
-function updatePhysics() {
-    // Actualizar posición de la bola del mouse
+window.updatePhysics = function() {
     if (state.mouseBall) {
         state.mouseBall.setTranslation({
             x: state.mousePos.x * 5,
@@ -161,16 +182,13 @@ function updatePhysics() {
         });
     }
 
-    // Actualizar logos
     state.logos.forEach(logo => {
         const pos = logo.rigidBody.translation();
         const position = new THREE.Vector3(pos.x, pos.y, pos.z);
         
-        // Resetear fuerzas
         logo.rigidBody.resetForces(true);
         logo.rigidBody.resetTorques(true);
 
-        // Aplicar fuerza hacia el centro
         const dir = position.clone().normalize();
         const distance = position.length();
         const forceStrength = Math.min(distance * 0.3, 0.8);
@@ -181,48 +199,16 @@ function updatePhysics() {
             z: -dir.z * forceStrength
         }, true);
 
-        // Actualizar posición visual
         logo.mesh.position.copy(position);
         const rotation = logo.rigidBody.rotation();
         logo.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
     });
 
     state.world.step();
-}
+};
 
-function animate() {
-    requestAnimationFrame(animate);
+window.animate = function() {
+    requestAnimationFrame(window.animate);
     updatePhysics();
     state.renderer.render(state.scene, state.camera);
-}
-
-async function init() {
-    // Configurar cámara
-    state.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-    state.camera.position.z = 10;
-
-    // Configurar renderer
-    state.renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: false,
-        powerPreference: "high-performance"
-    });
-    state.renderer.setSize(window.innerWidth, window.innerHeight);
-    state.renderer.setPixelRatio(1);
-    document.body.appendChild(state.renderer.domElement);
-
-    // Inicializar física y elementos
-    await RAPIER.init();
-    state.world = new RAPIER.World({ x: 0, y: 0, z: 0 });
-    
-    setupBoundaries();
-    setupMouseBall();
-    await setupLogos();
-    setupEventListeners();
-    
-    // Iniciar animación
-    animate();
-}
-
-// Iniciar la aplicación
-init();
+};

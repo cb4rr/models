@@ -201,16 +201,15 @@ async function init() {
     state.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
     state.camera.position.z = 10;
 
-    const parentCanvas = document.getElementById('threecanvas');
     // Configurar renderer
     state.renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: false,
-        powerPreference: "high-performance",
-        canvas: parentCanvas
+        powerPreference: "high-performance"
     });
     state.renderer.setSize(window.innerWidth, window.innerHeight);
     state.renderer.setPixelRatio(1);
+    document.body.appendChild(state.renderer.domElement);
 
     // Inicializar física y elementos
     await RAPIER.init();

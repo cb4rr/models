@@ -21,7 +21,19 @@ window.init = async function() {
     });
     state.renderer.setSize(window.innerWidth, window.innerHeight);
     state.renderer.setPixelRatio(1);
-    document.body.appendChild(state.renderer.domElement);
+
+    try {
+        const container = document.getElementById('sceneContainer');
+        if (container) {
+            container.appendChild(state.renderer.domElement);
+            console.log('Canvas added to container');
+        } else {
+            document.body.appendChild(state.renderer.domElement);
+            console.log('Canvas added to body');
+        }
+    } catch (error) {
+        console.error('Error adding canvas:', error);
+    }
 
     await RAPIER.init();
     state.world = new RAPIER.World({ x: 0, y: 0, z: 0 });
